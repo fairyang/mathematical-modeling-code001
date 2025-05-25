@@ -1,0 +1,117 @@
+%该部分用于计算移出率b（即k2）
+load data3
+for n = 1:length(r)-1
+    r0(n) = (r(n+1) - r(n))./i(n);
+end
+b = mean(r0)
+
+%b取data3数据结果为0.0046
+
+main.m
+
+%用最小二乘法估计s(t)初值和感染系数a（即k0)
+clc
+clear
+load data3.mat
+b=0.0046;   % 由Nmub计算所得
+%该部分用于计算a和s的初值 采用最小二乘法
+s0 = 100:5:30000;  % 估计s初值的取值范围
+for n = 1:length(s0)
+    s1 = s0(n) + i(1) - i(2) - r(2);  
+    m = (s0(n) - s1)./(s0(n).*i(1));
+    t = 1:15;
+    [T,Y] = ode45('sir',t,[s0(n),i(1),r(1),m,b]);
+    for p = 1:15
+        SE(p) = (Y(p,2) - i(p)).^2;
+    end
+    SEE(n) = sum(SE); %此时的残差平方和
+end
+[v,address] = min(SEE);
+s = s0(address); %残差平方和最小的s(t)初值
+s1 = s + i(1) - i(2) - r(2);
+m = (s - s1)./(s.*i(1)); %残差平方和最小的感染系数a
+tspan = 1:70;
+[T,Y] = ode45('sir',tspan,[s,i(1),r(1),m,b]);
+a=m*Y(1)
+figure(1);
+t = 1:length(i);
+plot(t,i,'rx-');
+hold on;
+y = Y(1:length(i),2);
+y = y';
+plot(t,y,'bo-');
+legend('真实值','预测值');
+xlabel('日期');ylabel('感染人数');
+figure(2);
+R = Y(1:length(r),3);
+R = R';
+plot(t,r,'rx-');
+hold on;
+plot(t,R,'bo-');
+legend('真实值','预测值');
+xlabel('日期');ylabel('移出人数');
+save finaldat
+
+sir.m
+
+function [ y ] = sir(t,x)
+%描述sir模型的微分方程
+%数组x前三个值分别为s i r初值，后两个值存储感染系数a 恢复系数b
+y=[-x(4)*x(1)*x(2),x(4)*x(1)*x(2)-x(5)*x(2),x(5)*x(2),0,0]'; %s增长率，i增长率，r增长率
+end
+
+forecast.m
+
+%用最小二乘法估计s(t)初值和感染系数a（即k0)
+clc
+clear
+load data3.mat
+b=0.0046;   % 由Nmub计算所得
+%该部分用于计算a和s的初值 采用最小二乘法
+s0 = 1500:10:30000;  % 估计s初值的取值范围
+for n = 1:length(s0)
+    s1 = s0(n) + i(1) - i(2) - r(2);
+    a = (s0(n) - s1)./(s0(n).*i(1));
+    t = 1:8;
+    [T,Y] = ode45('sir',t,[s0(n),i(1),r(1),a,b]);
+    for p = 1:8
+        SE(p) = (Y(p,2) - i(p)).^2;
+    end
+    SEE(n) = sum(SE); %此时的残差平方和
+end
+[v,address] = min(SEE);
+s = s0(address); %残差平方和最小的s(t)初值
+s1 = s + i(1) - i(2) - r(2);
+a = (s - s1)./(s.*i(1));%残差平方和最小的感染系数a
+tspan = 1:30;
+[T,Y] = ode45('sir',tspan,[s,i(1),r(1),a,b]);
+
+%a变为原来1/2
+a = a/2;
+tspan = 1:30;
+[T1,Y1] = ode45('sir',tspan,[s,i(1),r(1),a,b]);
+
+%a变为原来2倍
+a = a*4;
+tspan = 1:30;
+[T2,Y2] = ode45('sir',tspan,[s,i(1),r(1),a,b]);
+
+figure(1);
+t = 1:25;
+y = Y(1:25,2);
+y = y';
+plot(t,y,'bo-');
+hold on;
+
+y1 = Y1(1:25,2);
+y1 = y1';
+plot(t,y1,'rx-');
+
+y2 = Y2(1:25,2);
+y2 = y2';
+plot(t,y2,'yx-');
+
+legend('原感染率','原感染率/2','原感染率*2');
+xlabel('日期');ylabel('感染人数');
+title('不同感染率下25天内疫情趋势预测')
+
